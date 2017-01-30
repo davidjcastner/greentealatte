@@ -138,7 +138,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
         for (AdvancedRunnable beforeCode : this.hookBefore) beforeCode.run();
 
         // run each test
-        for (AdvancedRunnable test : tests) {
+        for (AdvancedRunnable test : this.tests) {
             // run the before each hooks
             for (AdvancedRunnable beforeEachCode : this.hookBeforeEach) beforeEachCode.run();
 
