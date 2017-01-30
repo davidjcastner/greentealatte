@@ -20,7 +20,6 @@ public interface GreenTeaLatteInterface {
     // call inside of a category
 
     void assertTest(Boolean expressionToTest);
-    void assertTest(String description, Boolean expressionToTest);
     // takes the boolean value of the result of a test and applies it to the test
     // call inside of a test
 
