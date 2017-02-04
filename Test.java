@@ -1,6 +1,8 @@
+import src.GreenTeaLatte;
+
 public class Test {
     public static void main(String[] args) {
-        Driver driver = new Driver();
+        GreenTeaLatte driver = new GreenTeaLatte();
 
         driver.describe("testing class A", () -> {
                 driver.describe("testing method B", () -> {
