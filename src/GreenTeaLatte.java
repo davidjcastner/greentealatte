@@ -35,6 +35,11 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
     private int pendingTests    = 0;
     private int failedTests     = 0;
 
+    // variables for tracking test state
+    private boolean stateIsRunningTest       = false;
+    private boolean stateWasAssertTestCalled = false;
+    private boolean stateHasFailedTest       = false;
+
     /**
      * Is root checker
      *
@@ -240,7 +245,10 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      *
      * @param resultFromTestExpression boolean from a user defined test expression
      */
-    public void assertTest(Boolean resultFromTestExpression) {}
+    public void assertTest(Boolean resultFromTestExpression) {
+        this.currentNode.stateWasAssertTestCalled = true;
+        if (!resultFromTestExpression) this.currentNode.stateHasFailedTest = true;
+    }
 
     /**
      * Define a block of code to run before the current node executes any tests
@@ -309,10 +317,12 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void run() {
         // log information about current node (description)
+        if (!this.isRoot()) System.out.println();
         System.out.println(this.toString());
 
         // run children first before executing tests
         for (GreenTeaLatte child : this.children) child.run();
+        if (this.children.size() > 0) System.out.println();
 
         // run all before hooks
         for (ExtendedRunnable hook : this.beforeHooks) {
@@ -328,9 +338,33 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
                 hook.run();
             }
 
-            // run the test
-            System.out.printf("%s%s\n", this.getFullIdentationString(1), test.getDescription());
+            // running the test
+
+            // resetting state related to state
+            this.stateWasAssertTestCalled = false;
+            this.stateHasFailedTest       = false;
+
+            // call the test
+            this.stateIsRunningTest = true;
+            this.setCurrentBranch(this);
             test.run();
+            // TODO: capture errors with stack traces
+            this.stateIsRunningTest = false;
+
+            // report the test and check for successful, pending, or failed
+            String symbolForTest = "";
+            if (!stateWasAssertTestCalled) {
+                this.incrementPendingTests();
+                symbolForTest = SYMBOL_WARNING;
+            } else if (stateHasFailedTest) {
+                this.incrementFailedTests();
+                symbolForTest = SYMBOL_FAILED;
+            } else {
+                this.incrementSuccessfulTests();
+                symbolForTest = SYMBOL_SUCCESSFUL;
+            }
+            System.out.printf("%s%s %s\n", this.getFullIdentationString(1), symbolForTest, test.getDescription());
+            // TODO: report errors with stack traces
 
             // run all individual after hooks
             for (ExtendedRunnable hook : this.afterEachHooks) {
@@ -346,7 +380,8 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
         }
 
         // report information on amount of tests successful, pending, and failed
-        if (this.isRoot()) System.out.println("\nTest Summary:");
+        if (this.isRoot()) System.out.println("Test Summary:");
+        else System.out.println();
 
         System.out.printf("%s%d passed %s\n", this.getFullIdentationString(1), this.successfulTests, SYMBOL_SUCCESSFUL);
         if (this.pendingTests > 0) {
@@ -356,7 +391,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
 
         if (this.isRoot()) {
             System.out.println();
-            if (this.pendingTests > 0) System.out.printf("%s %d pending tests!", SYMBOL_WARNING, this.pendingTests);
+            if (this.pendingTests > 0) System.out.printf("%s %d pending tests!\n", SYMBOL_WARNING, this.pendingTests);
             if (this.failedTests <= 0) System.out.printf("%s All tests passed!\n", SYMBOL_SUCCESSFUL);
             else System.out.printf("%s Tests have failed!\n", SYMBOL_FAILED);
         }

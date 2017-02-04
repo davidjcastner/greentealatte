@@ -20,7 +20,7 @@ public class Test {
                     });
                 deliciousLatte.describe("testing method C", () -> {
                         deliciousLatte.it("should do that", () -> {
-                                deliciousLatte.assertTest(false);
+                                deliciousLatte.assertTest(true);
                             });
                         deliciousLatte.describe("testing something about method C", () -> {
                                 deliciousLatte.it("should pass this test", () -> {
@@ -48,7 +48,7 @@ public class Test {
                         deliciousLatte.assertTest(true);
                     });
                 deliciousLatte.describe("testing method F", () -> {
-                        deliciousLatte.it("should do that", () -> {
+                        deliciousLatte.it("shouldn't do that", () -> {
                                 deliciousLatte.assertTest(false);
                             });
                         deliciousLatte.describe("testing something about method F", () -> {
