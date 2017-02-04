@@ -2,62 +2,66 @@ import src.GreenTeaLatte;
 
 public class Test {
     public static void main(String[] args) {
-        GreenTeaLatte driver = new GreenTeaLatte();
+        GreenTeaLatte deliciousLatte = new GreenTeaLatte();
 
-        driver.describe("testing class A", () -> {
-                driver.describe("testing method B", () -> {
-                        driver.it("should pass this test", () -> {
-                                driver.assertTest(true);
+        deliciousLatte.setIndentationToSpaces(4);
+
+        deliciousLatte.describe("testing class A", () -> {
+                deliciousLatte.describe("testing method B", () -> {
+                        deliciousLatte.it("should pass this test", () -> {
+                                deliciousLatte.assertTest(true);
                             });
-                        driver.it("should fail this test", () -> {
-                                driver.assertTest(false);
+                        deliciousLatte.it("should fail this test", () -> {
+                                deliciousLatte.assertTest(false);
                             });
                     });
-                driver.it("should do something for class A", () -> {
-                        driver.assertTest(true);
+                deliciousLatte.it("should do something for class A", () -> {
+                        deliciousLatte.assertTest(true);
                     });
-                driver.describe("testing method C", () -> {
-                        driver.it("should do that", () -> {
-                                driver.assertTest(false);
+                deliciousLatte.describe("testing method C", () -> {
+                        deliciousLatte.it("should do that", () -> {
+                                deliciousLatte.assertTest(false);
                             });
-                        driver.describe("testing something about method C", () -> {
-                                driver.it("should pass this test", () -> {
-                                        driver.assertTest(true);
+                        deliciousLatte.describe("testing something about method C", () -> {
+                                deliciousLatte.it("should pass this test", () -> {
+                                        deliciousLatte.assertTest(true);
                                     });
-                                driver.it("should fail this test", () -> {
-                                        driver.assertTest(false);
+                                deliciousLatte.it("should fail this test", () -> {
+                                        deliciousLatte.assertTest(false);
+                                    });
+                                deliciousLatte.it("pendingTest");
+                            });
+                    });
+            });
+
+        deliciousLatte.describe("testing class D", () -> {
+                deliciousLatte.describe("testing method E", () -> {
+                        deliciousLatte.it("should pass this test", () -> {
+                                deliciousLatte.assertTest(true);
+                            });
+                        deliciousLatte.it("should fail this test", () -> {
+                                deliciousLatte.assertTest(false);
+                            });
+                        deliciousLatte.it("pendingTest", () -> {});
+                    });
+                deliciousLatte.it("should do something for class D", () -> {
+                        deliciousLatte.assertTest(true);
+                    });
+                deliciousLatte.describe("testing method F", () -> {
+                        deliciousLatte.it("should do that", () -> {
+                                deliciousLatte.assertTest(false);
+                            });
+                        deliciousLatte.describe("testing something about method F", () -> {
+                                deliciousLatte.it("should pass this test", () -> {
+                                        deliciousLatte.assertTest(true);
+                                    });
+                                deliciousLatte.it("should fail this test", () -> {
+                                        deliciousLatte.assertTest(false);
                                     });
                             });
                     });
             });
 
-        driver.describe("testing class D", () -> {
-                driver.describe("testing method E", () -> {
-                        driver.it("should pass this test", () -> {
-                                driver.assertTest(true);
-                            });
-                        driver.it("should fail this test", () -> {
-                                driver.assertTest(false);
-                            });
-                    });
-                driver.it("should do something for class D", () -> {
-                        driver.assertTest(true);
-                    });
-                driver.describe("testing method F", () -> {
-                        driver.it("should do that", () -> {
-                                driver.assertTest(false);
-                            });
-                        driver.describe("testing something about method F", () -> {
-                                driver.it("should pass this test", () -> {
-                                        driver.assertTest(true);
-                                    });
-                                driver.it("should fail this test", () -> {
-                                        driver.assertTest(false);
-                                    });
-                            });
-                    });
-            });
-
-        driver.run();
+        deliciousLatte.run();
     } /* main */
 }

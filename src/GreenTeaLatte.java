@@ -5,7 +5,11 @@ import java.util.LinkedList;
 /**
  * A behavoir driven development testing framework
  */
-public class GreenTeaLatte {
+public class GreenTeaLatte implements GreenTeaLatteInterface {
+    // indentation information, used in output
+    private boolean useSpaces   = false;
+    private int indentationSize = 0;
+
     // GreenTeaLatte forms a tree of testing nodes
     // standard variables for tracking a tree structure
     private GreenTeaLatte parent;
@@ -48,6 +52,39 @@ public class GreenTeaLatte {
     }
 
     /**
+     * Creates a string that represents a single indentation
+     *
+     * @return single indentation string
+     */
+    private String getSingleIdentationString() {
+        // only the root store information about the padding
+        // so it searches for root first
+        if (this.parent == null) { // root node
+            if (this.useSpaces) {
+                String indent = "";
+                for (int i = 0; i < this.indentationSize; i++) indent += " ";
+                return indent;
+            } else { return "\t"; }
+        } else { return this.parent.getSingleIdentationString(); }
+    };
+
+    /**
+     * Creates a string that represents the full indentation
+     *
+     * @param additionalIndents allows for adding additional indentation
+     * @return full indentation
+     */
+    private String getFullIdentationString(int additionalIndents) {
+        int indentAmount         = this.depth();
+        String fullIndentation   = "";
+        String singleIndentation = this.getSingleIdentationString();
+
+        indentAmount += additionalIndents;
+        for (int i = 0; i < indentAmount; i++) fullIndentation += singleIndentation;
+        return fullIndentation;
+    };
+
+    /**
      * Create a child node
      *
      * @param parent parent of node being created
@@ -66,11 +103,24 @@ public class GreenTeaLatte {
     }
 
     /**
+     * Sets the output indentation to the desired amount of spaces
+     *
+     * @param amountOfSpaces amount of spaces
+     */
+    public void setIndentationToSpaces(int amountOfSpaces) {
+        // indentation information only kept on the root node
+        if (this.parent == null) { // root node
+            this.useSpaces       = true;
+            this.indentationSize = amountOfSpaces;
+        } else { this.parent.setIndentationToSpaces(amountOfSpaces); }
+    }
+
+    /**
      * Creates a new node (branch) in the testing code with a description of it
      * <p>
      * {@code GreenTeaLatte deliciousLatte = new GreenTeaLatte();
-     * deliciousLatte.describe("testing className", () -> {
-     *     deliciousLatte.describe("testing methodName", () -> {
+     * deliciousLatte.describe("className", () -> {
+     *     deliciousLatte.describe("methodName", () -> {
      *         // define tests and hooks for testing methodName
      *     });
      * });}
@@ -102,23 +152,41 @@ public class GreenTeaLatte {
     }
 
     /**
-     * creates and attaches a test to the current node
+     * Creates and attaches a pending test to the current node
      * <p>
-     * meant to be called with the runnable of a describe method, but can be be
-     * called on the root node
+     * A pending test is a test that does not have the test code written yet.
+     * Pending tests will result in a warning, but not an error.
+     * <p>
+     * This is meant to be called with the runnable of a describe method, but can be be
+     * called on the root node.
+     *
+     * @param testDescription description of the pending test
+     */
+    public void it(String testDescription) {
+        // add test to current level
+        this.currentNode.tests.add(new ExtendedRunnable(testDescription, () -> {}));
+    }
+
+    /**
+     * Creates and attaches a test to the current node
+     * <p>
+     * This is meant to be called with the runnable of a describe method, but can be be
+     * called on the root node.
+     * <p>
+     * Not including a "assertTest" call within a test will act as a pending test and result in a warning.
      *
      * @param testDescription description of the test
      * @param testCode code for the test
      */
     public void it(String testDescription, Runnable testCode) {
         // add test to current level
-        this.tests.add(new ExtendedRunnable(testDescription, testCode));
+        this.currentNode.tests.add(new ExtendedRunnable(testDescription, testCode));
     }
 
     /**
-     * evaluates the result from a test expression
+     * Evaluates the result from a test expression
      * <p>
-     * must be called within a test (inside a runnable passed to the `it` method)
+     * This must be called within a test (inside a runnable passed to the `it` method)
      * used to determine if a test failed or passed
      *
      * @param resultFromTestExpression boolean from a user defined test expression
@@ -126,24 +194,121 @@ public class GreenTeaLatte {
     public void assertTest(Boolean resultFromTestExpression) {}
 
     /**
-     * runs all tests that have been defined
+     * Define a block of code to run before the current node executes any tests
+     * <p>
+     * This only runs once for the "describe" node that it is defined in.
+     * Multiple before code blocks can be defined. When there are multiple
+     * blocks defined, they will execute in the order that they are defined.
+     *
+     * @param description description for the setup
+     * @param setup code for the setup
      */
-    public void run() {
-        // temporary, testing tree structure
-        System.out.println(this.toString());
-        for (GreenTeaLatte child : this.children) child.run();
+    public void before(String description, Runnable setup) {
+        // add hook to current level
+        this.currentNode.beforeHooks.add(new ExtendedRunnable(description, setup));
     }
 
     /**
-     * converts the testing tree to a human readable string
+     * Define a block of code to run after the current node executes any tests
+     * <p>
+     * This only runs once for the "describe" node that it is defined in.
+     * Multiple after code blocks can be defined. When there are multiple
+     * blocks defined, they will execute in the order that they are defined.
+     *
+     * @param description description for the cleanup
+     * @param cleanup code for the cleanup
+     */
+    public void after(String description, Runnable cleanup) {
+        // add hook to current level
+        this.currentNode.afterHooks.add(new ExtendedRunnable(description, cleanup));
+    }
+
+    /**
+     * Define a block of code to run before each test
+     * <p>
+     * This only runs once for each "it" test in the current node.
+     * Multiple before code blocks can be defined. When there are multiple
+     * blocks defined, they will execute in the order that they are defined.
+     *
+     * @param description description for the setup
+     * @param setup code for the setup
+     */
+    public void beforeEach(String description, Runnable setup) {
+        // add hook to current level
+        this.currentNode.beforeEachHooks.add(new ExtendedRunnable(description, setup));
+    }
+
+    /**
+     * Define a block of code to run after each test
+     * <p>
+     * This only runs once for each "it" test in the current node.
+     * Multiple before code blocks can be defined. When there are multiple
+     * blocks defined, they will execute in the order that they are defined.
+     *
+     * @param description description for the cleanup
+     * @param cleanup code for the cleanup
+     */
+    public void afterEach(String description, Runnable cleanup) {
+        // add hook to current level
+        this.currentNode.afterEachHooks.add(new ExtendedRunnable(description, cleanup));
+    }
+
+    /**
+     * Runs all tests that have been defined
+     * <p>
+     * Runs deepest level tests first.
+     */
+    public void run() {
+        // log information about current node (description)
+        if (this.description != null) System.out.println(this.toString());
+
+        // run children first before executing tests
+        for (GreenTeaLatte child : this.children) child.run();
+
+        // run all before hooks
+        for (ExtendedRunnable hook : this.beforeHooks) {
+            System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+            hook.run();
+        }
+
+        // run each test
+        for (ExtendedRunnable test : this.tests) {
+            // run all individual before hooks
+            for (ExtendedRunnable hook : this.beforeEachHooks) {
+                System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+                hook.run();
+            }
+
+            // run the test
+            System.out.printf("%s%s\n", this.getFullIdentationString(1), test.getDescription());
+            test.run();
+
+            // run all individual after hooks
+            for (ExtendedRunnable hook : this.afterEachHooks) {
+                System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+                hook.run();
+            }
+        }
+
+        // run all after hooks
+        for (ExtendedRunnable hook : this.afterHooks) {
+            System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+            hook.run();
+        }
+
+        // TODO: report information on amount of tests passed and failed
+
+        // TODO: throw error if current node is the root and if tests have failed
+    } /* run */
+
+    /**
+     * Create a human readable string of testing structure
      *
      * @return human readable string representing testing tree
      */
     public String toString() {
-        String padding = "";
+        String description = (this.description == null) ? "" : this.description;
 
-        for (int i = 0; i < this.depth(); i++) padding += "    ";
-        String description = (this.description == null) ? "root" : this.description;
-        return String.format("%sDepth %d: %s", padding, this.depth(), description);
+        return String.format("%s%s", this.getFullIdentationString(0), description);
     }
 }
