@@ -11,16 +11,12 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
     private static final String SYMBOL_WARNING    = "\u26A0"; // triangle w/ !
     private static final String SYMBOL_FAILED     = "\u2717"; // cross
 
-    // indentation information, used in output
-    private boolean useSpaces   = false;
-    private int indentationSize = 0;
-
     // GreenTeaLatte forms a tree of testing nodes
     // standard variables for tracking a tree structure
-    private String description   = ""; // description for current node
+    private String description = ""; // description for current node
+    private int depth = 0;
     private GreenTeaLatte parent = null;
     private LinkedList<GreenTeaLatte> children = new LinkedList<GreenTeaLatte>();
-    private GreenTeaLatte currentNode = null; // tracks the current node in the root node
 
     // storage for all tests and hooks in the current node
     // preserves order in which they are defined
@@ -35,10 +31,20 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
     private int pendingTests    = 0;
     private int failedTests     = 0;
 
-    // variables for tracking test state
-    private boolean stateIsRunningTest       = false;
-    private boolean stateWasAssertTestCalled = false;
-    private boolean stateHasFailedTest       = false;
+    // full tree state
+    private GTLState state;
+
+    private class GTLState {
+        GreenTeaLatte currentNode = null;
+
+        // indentation information, used in output
+        String singleIndentation = "\t";
+
+        // variables for tracking tests
+        boolean isRunningTest       = false;
+        boolean wasAssertTestCalled = false;
+        boolean hasFailedTest       = false;
+    }
 
     /**
      * Is root checker
@@ -46,28 +52,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @return true if this is the root node
      */
     private boolean isRoot() {
-        return this.parent == null;
-    }
-
-    /**
-     * Private method for finding the depth of the current node in the testing tree
-     *
-     * @return depth level with 0 being the root elements
-     */
-    private int depth() {
-        // finds depth depth cursively
-        if (this.isRoot()) return 0;
-        else return this.parent.depth() + 1;
-    }
-
-    /**
-     * Updates the tree to track the node that is running code
-     * <p>
-     * Only keeps the current node state in the root node
-     */
-    private void setCurrentBranch(GreenTeaLatte branch) {
-        if (this.isRoot()) this.currentNode = branch;
-        else this.parent.setCurrentBranch(branch);
+        return this.depth == 0;
     }
 
     /**
@@ -95,35 +80,16 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
     }
 
     /**
-     * Creates a string that represents a single indentation
-     *
-     * @return single indentation string
-     */
-    private String getSingleIdentationString() {
-        // only the root store information about the padding
-        // so it searches for root first
-        if (this.isRoot()) {
-            if (this.useSpaces) {
-                String indent = "";
-                for (int i = 0; i < this.indentationSize; i++) indent += " ";
-                return indent;
-            } else { return "\t"; }
-        } else { return this.parent.getSingleIdentationString(); }
-    };
-
-    /**
      * Creates a string that represents the full indentation
      *
      * @param additionalIndents allows for adding additional indentation
      * @return full indentation
      */
-    private String getFullIdentationString(int additionalIndents) {
-        int indentAmount         = this.depth();
-        String fullIndentation   = "";
-        String singleIndentation = this.getSingleIdentationString();
+    private String getFullIdentation(int additionalIndents) {
+        int indentAmount       = this.depth + additionalIndents;
+        String fullIndentation = "";
 
-        indentAmount += additionalIndents;
-        for (int i = 0; i < indentAmount; i++) fullIndentation += singleIndentation;
+        for (int i = 0; i < indentAmount; i++) fullIndentation += this.state.singleIndentation;
         return fullIndentation;
     };
 
@@ -134,16 +100,20 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param nodeDescription description for the node
      */
     private GreenTeaLatte(GreenTeaLatte parent, String nodeDescription) {
-        this.parent      = parent;
         this.description = nodeDescription;
+        this.depth       = parent.depth + 1;
+        this.parent      = parent;
+        this.state       = parent.state;
     }
 
     /**
      * Creates a GreenTeaLatte instance
      */
     public GreenTeaLatte() {
-        this.parent      = null;
-        this.description = "Brewing a Green Tea Latte:";
+        this.description       = "Brewing a Green Tea Latte:";
+        this.parent            = null;
+        this.state             = new GTLState();
+        this.state.currentNode = this;
     }
 
     /**
@@ -152,8 +122,10 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param description description for entire testing tree
      */
     public GreenTeaLatte(String description) {
-        this.parent      = null;
-        this.description = description;
+        this.description       = description;
+        this.parent            = null;
+        this.state             = new GTLState();
+        this.state.currentNode = this;
     }
 
     /**
@@ -163,10 +135,10 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void setIndentationToSpaces(int amountOfSpaces) {
         // indentation information only kept on the root node
-        if (this.isRoot()) {
-            this.useSpaces       = true;
-            this.indentationSize = amountOfSpaces;
-        } else { this.parent.setIndentationToSpaces(amountOfSpaces); }
+        String newIndentation = "";
+
+        for (int i = 0; i < amountOfSpaces; i++) newIndentation += " ";
+        this.state.singleIndentation = newIndentation;
     }
 
     /**
@@ -184,25 +156,18 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void describe(String nodeDescription, Runnable nodeCode) {
         // creating the new child with appropriate parent, and add to tree
-        GreenTeaLatte child;
+        GreenTeaLatte child = new GreenTeaLatte(this.state.currentNode, nodeDescription);
 
-        if (this.currentNode == null) {
-            // root of driver
-            child = new GreenTeaLatte(this, nodeDescription);
-            this.children.add(child);
-        } else {
-            child = new GreenTeaLatte(currentNode, nodeDescription);
-            currentNode.children.add(child);
-        }
+        this.state.currentNode.children.add(child);
 
         // update current branch
-        this.setCurrentBranch(child);
+        this.state.currentNode = child;
 
         // process child code
         nodeCode.run();
 
         // child code complete, reset current branch
-        this.setCurrentBranch(child.parent);
+        this.state.currentNode = child.parent;
     }
 
     /**
@@ -218,7 +183,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void it(String testDescription) {
         // add test to current level
-        this.currentNode.tests.add(new ExtendedRunnable(testDescription, () -> {}));
+        this.state.currentNode.tests.add(new ExtendedRunnable(testDescription, () -> {}));
     }
 
     /**
@@ -234,7 +199,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void it(String testDescription, Runnable testCode) {
         // add test to current level
-        this.currentNode.tests.add(new ExtendedRunnable(testDescription, testCode));
+        this.state.currentNode.tests.add(new ExtendedRunnable(testDescription, testCode));
     }
 
     /**
@@ -246,8 +211,8 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param resultFromTestExpression boolean from a user defined test expression
      */
     public void assertTest(Boolean resultFromTestExpression) {
-        this.currentNode.stateWasAssertTestCalled = true;
-        if (!resultFromTestExpression) this.currentNode.stateHasFailedTest = true;
+        this.state.wasAssertTestCalled = true;
+        if (!resultFromTestExpression) this.state.hasFailedTest = true;
     }
 
     /**
@@ -262,7 +227,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void before(String description, Runnable setup) {
         // add hook to current level
-        this.currentNode.beforeHooks.add(new ExtendedRunnable(description, setup));
+        this.state.currentNode.beforeHooks.add(new ExtendedRunnable(description, setup));
     }
 
     /**
@@ -277,7 +242,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void after(String description, Runnable cleanup) {
         // add hook to current level
-        this.currentNode.afterHooks.add(new ExtendedRunnable(description, cleanup));
+        this.state.currentNode.afterHooks.add(new ExtendedRunnable(description, cleanup));
     }
 
     /**
@@ -292,7 +257,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void beforeEach(String description, Runnable setup) {
         // add hook to current level
-        this.currentNode.beforeEachHooks.add(new ExtendedRunnable(description, setup));
+        this.state.currentNode.beforeEachHooks.add(new ExtendedRunnable(description, setup));
     }
 
     /**
@@ -307,7 +272,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void afterEach(String description, Runnable cleanup) {
         // add hook to current level
-        this.currentNode.afterEachHooks.add(new ExtendedRunnable(description, cleanup));
+        this.state.currentNode.afterEachHooks.add(new ExtendedRunnable(description, cleanup));
     }
 
     /**
@@ -326,7 +291,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
 
         // run all before hooks
         for (ExtendedRunnable hook : this.beforeHooks) {
-            System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+            System.out.printf("%s%s\n", this.getFullIdentation(1), hook.getDescription());
             hook.run();
         }
 
@@ -334,48 +299,48 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
         for (ExtendedRunnable test : this.tests) {
             // run all individual before hooks
             for (ExtendedRunnable hook : this.beforeEachHooks) {
-                System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+                System.out.printf("%s%s\n", this.getFullIdentation(1), hook.getDescription());
                 hook.run();
             }
 
             // running the test
 
             // resetting state related to state
-            this.stateWasAssertTestCalled = false;
-            this.stateHasFailedTest       = false;
+            this.state.wasAssertTestCalled = false;
+            this.state.hasFailedTest       = false;
 
             // call the test
-            this.stateIsRunningTest = true;
-            this.setCurrentBranch(this);
+            this.state.isRunningTest = true;
+            this.state.currentNode   = this;
             test.run();
             // TODO: capture errors with stack traces
-            this.stateIsRunningTest = false;
+            this.state.isRunningTest = false;
 
             // report the test and check for successful, pending, or failed
             String symbolForTest = "";
-            if (!stateWasAssertTestCalled) {
+            if (!this.state.wasAssertTestCalled) {
                 this.incrementPendingTests();
                 symbolForTest = SYMBOL_WARNING;
-            } else if (stateHasFailedTest) {
+            } else if (this.state.hasFailedTest) {
                 this.incrementFailedTests();
                 symbolForTest = SYMBOL_FAILED;
             } else {
                 this.incrementSuccessfulTests();
                 symbolForTest = SYMBOL_SUCCESSFUL;
             }
-            System.out.printf("%s%s %s\n", this.getFullIdentationString(1), symbolForTest, test.getDescription());
+            System.out.printf("%s%s %s\n", this.getFullIdentation(1), symbolForTest, test.getDescription());
             // TODO: report errors with stack traces
 
             // run all individual after hooks
             for (ExtendedRunnable hook : this.afterEachHooks) {
-                System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+                System.out.printf("%s%s\n", this.getFullIdentation(1), hook.getDescription());
                 hook.run();
             }
         }
 
         // run all after hooks
         for (ExtendedRunnable hook : this.afterHooks) {
-            System.out.printf("%s%s\n", this.getFullIdentationString(1), hook.getDescription());
+            System.out.printf("%s%s\n", this.getFullIdentation(1), hook.getDescription());
             hook.run();
         }
 
@@ -383,11 +348,11 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
         if (this.isRoot()) System.out.println("Test Summary:");
         else System.out.println();
 
-        System.out.printf("%s%d passed %s\n", this.getFullIdentationString(1), this.successfulTests, SYMBOL_SUCCESSFUL);
+        System.out.printf("%s%d passed %s\n", this.getFullIdentation(1), this.successfulTests, SYMBOL_SUCCESSFUL);
         if (this.pendingTests > 0) {
-            System.out.printf("%s%d pending %s\n", this.getFullIdentationString(1), this.pendingTests, SYMBOL_WARNING);
+            System.out.printf("%s%d pending %s\n", this.getFullIdentation(1), this.pendingTests, SYMBOL_WARNING);
         }
-        System.out.printf("%s%d failed %s\n", this.getFullIdentationString(1), this.failedTests, SYMBOL_FAILED);
+        System.out.printf("%s%d failed %s\n", this.getFullIdentation(1), this.failedTests, SYMBOL_FAILED);
 
         if (this.isRoot()) {
             System.out.println();
@@ -406,6 +371,6 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @return description with indentation
      */
     public String toString() {
-        return String.format("%s%s", this.getFullIdentationString(0), this.description);
+        return String.format("%s%s", this.getFullIdentation(0), this.description);
     }
 }

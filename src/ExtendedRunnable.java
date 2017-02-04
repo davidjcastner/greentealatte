@@ -13,7 +13,7 @@ class ExtendedRunnable {
      * @param runnableDescription description to attach to the runnable
      * @param runnableCode the actual runnable
      */
-    protected ExtendedRunnable(String runnableDescription, Runnable runnableCode) {
+    ExtendedRunnable(String runnableDescription, Runnable runnableCode) {
         this.description = runnableDescription;
         this.code        = runnableCode;
     }
@@ -23,14 +23,14 @@ class ExtendedRunnable {
      *
      * @return the description
      */
-    protected String getDescription() {
+    String getDescription() {
         return this.description;
     }
 
     /**
      * runs the stored runnable
      */
-    protected void run() {
+    void run() {
         this.code.run();
     }
 }
