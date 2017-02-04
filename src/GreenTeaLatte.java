@@ -6,19 +6,24 @@ import java.util.LinkedList;
  * A behavoir driven development testing framework
  */
 public class GreenTeaLatte implements GreenTeaLatteInterface {
+    // symbols used in ouput
+    private static final String SYMBOL_SUCCESSFUL = "\u2713"; // check mark
+    private static final String SYMBOL_WARNING    = "\u26A0"; // triangle w/ !
+    private static final String SYMBOL_FAILED     = "\u2717"; // cross
+
     // indentation information, used in output
     private boolean useSpaces   = false;
     private int indentationSize = 0;
 
     // GreenTeaLatte forms a tree of testing nodes
     // standard variables for tracking a tree structure
-    private GreenTeaLatte parent;
+    private String description   = ""; // description for current node
+    private GreenTeaLatte parent = null;
     private LinkedList<GreenTeaLatte> children = new LinkedList<GreenTeaLatte>();
-    private String description;        // description for current node
-    private GreenTeaLatte currentNode; // tracks the current node in the root instance
+    private GreenTeaLatte currentNode = null; // tracks the current node in the root node
 
     // storage for all tests and hooks in the current node
-    // preserves order from they are defined
+    // preserves order in which they are defined
     private LinkedList<ExtendedRunnable> tests           = new LinkedList<ExtendedRunnable>();
     private LinkedList<ExtendedRunnable> beforeHooks     = new LinkedList<ExtendedRunnable>();
     private LinkedList<ExtendedRunnable> beforeEachHooks = new LinkedList<ExtendedRunnable>();
@@ -26,9 +31,18 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
     private LinkedList<ExtendedRunnable> afterHooks      = new LinkedList<ExtendedRunnable>();
 
     // testing statistics for current node and all descendants
-    private int successfulTests;
-    private int pendingTests;
-    private int failedTests;
+    private int successfulTests = 0;
+    private int pendingTests    = 0;
+    private int failedTests     = 0;
+
+    /**
+     * Is root checker
+     *
+     * @return true if this is the root node
+     */
+    private boolean isRoot() {
+        return this.parent == null;
+    }
 
     /**
      * Private method for finding the depth of the current node in the testing tree
@@ -37,7 +51,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     private int depth() {
         // finds depth depth cursively
-        if (this.parent == null) return 0;  // root node
+        if (this.isRoot()) return 0;
         else return this.parent.depth() + 1;
     }
 
@@ -47,8 +61,32 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * Only keeps the current node state in the root node
      */
     private void setCurrentBranch(GreenTeaLatte branch) {
-        if (this.parent == null) this.currentNode = branch;  // root node
+        if (this.isRoot()) this.currentNode = branch;
         else this.parent.setCurrentBranch(branch);
+    }
+
+    /**
+     * Increments the successful test counter for current node and all parents
+     */
+    private void incrementSuccessfulTests() {
+        this.successfulTests++;
+        if (!this.isRoot()) this.parent.incrementSuccessfulTests();
+    }
+
+    /**
+     * Increments the pending test counter for current node and all parents
+     */
+    private void incrementPendingTests() {
+        this.pendingTests++;
+        if (!this.isRoot()) this.parent.incrementPendingTests();
+    }
+
+    /**
+     * Increments the failed test counter for current node and all parents
+     */
+    private void incrementFailedTests() {
+        this.failedTests++;
+        if (!this.isRoot()) this.parent.incrementFailedTests();
     }
 
     /**
@@ -59,7 +97,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
     private String getSingleIdentationString() {
         // only the root store information about the padding
         // so it searches for root first
-        if (this.parent == null) { // root node
+        if (this.isRoot()) {
             if (this.useSpaces) {
                 String indent = "";
                 for (int i = 0; i < this.indentationSize; i++) indent += " ";
@@ -99,7 +137,18 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * Creates a GreenTeaLatte instance
      */
     public GreenTeaLatte() {
-        this.parent = null;
+        this.parent      = null;
+        this.description = "Brewing a Green Tea Latte:";
+    }
+
+    /**
+     * Creates a GreenTeaLatte instance with a description
+     *
+     * @param description description for entire testing tree
+     */
+    public GreenTeaLatte(String description) {
+        this.parent      = null;
+        this.description = description;
     }
 
     /**
@@ -109,7 +158,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void setIndentationToSpaces(int amountOfSpaces) {
         // indentation information only kept on the root node
-        if (this.parent == null) { // root node
+        if (this.isRoot()) {
             this.useSpaces       = true;
             this.indentationSize = amountOfSpaces;
         } else { this.parent.setIndentationToSpaces(amountOfSpaces); }
@@ -260,7 +309,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      */
     public void run() {
         // log information about current node (description)
-        if (this.description != null) System.out.println(this.toString());
+        System.out.println(this.toString());
 
         // run children first before executing tests
         for (GreenTeaLatte child : this.children) child.run();
@@ -296,19 +345,32 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
             hook.run();
         }
 
-        // TODO: report information on amount of tests passed and failed
+        // report information on amount of tests successful, pending, and failed
+        if (this.isRoot()) System.out.println("\nTest Summary:");
+
+        System.out.printf("%s%d passed %s\n", this.getFullIdentationString(1), this.successfulTests, SYMBOL_SUCCESSFUL);
+        if (this.pendingTests > 0) {
+            System.out.printf("%s%d pending %s\n", this.getFullIdentationString(1), this.pendingTests, SYMBOL_WARNING);
+        }
+        System.out.printf("%s%d failed %s\n", this.getFullIdentationString(1), this.failedTests, SYMBOL_FAILED);
+
+        if (this.isRoot()) {
+            System.out.println();
+            if (this.pendingTests > 0) System.out.printf("%s %d pending tests!", SYMBOL_WARNING, this.pendingTests);
+            if (this.failedTests <= 0) System.out.printf("%s All tests passed!\n", SYMBOL_SUCCESSFUL);
+            else System.out.printf("%s Tests have failed!\n", SYMBOL_FAILED);
+        }
 
         // TODO: throw error if current node is the root and if tests have failed
+        //
     } /* run */
 
     /**
-     * Create a human readable string of testing structure
+     * Create a human readable string of current node
      *
-     * @return human readable string representing testing tree
+     * @return description with indentation
      */
     public String toString() {
-        String description = (this.description == null) ? "" : this.description;
-
-        return String.format("%s%s", this.getFullIdentationString(0), description);
+        return String.format("%s%s", this.getFullIdentationString(0), this.description);
     }
 }
