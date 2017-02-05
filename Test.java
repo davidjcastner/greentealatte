@@ -9,6 +9,7 @@ public class Test {
         deliciousLatte.describe("testing class A", () -> {
                 deliciousLatte.describe("testing method B", () -> {
                         deliciousLatte.it("should pass this test", () -> {
+                                deliciousLatte.describe("ilegal describe", () -> {});
                                 deliciousLatte.assertTest(true);
                             });
                         deliciousLatte.it("should fail this test", () -> {

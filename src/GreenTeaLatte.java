@@ -61,6 +61,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
         String singleIndentation = "\t";
 
         // variables for tracking tests
+        boolean isRunningAllTests   = false;
         boolean isRunningTest       = false;
         boolean wasAssertTestCalled = false;
         boolean hasFailedTest       = false;
@@ -117,6 +118,26 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
     };
 
     /**
+     * removes uncessary information from the stack trace for easier debugging
+     *
+     * @param  Throwable throwable to filter
+     */
+    private void filterStackTrace(Throwable throwable) {
+        LinkedList<StackTraceElement> filteredStackTrace = new LinkedList<StackTraceElement>();
+        for (StackTraceElement element : throwable.getStackTrace()) {
+            boolean isFromClass      = element.getClassName().equals(this.getClass().getCanonicalName());
+            String methodName        = element.getMethodName();
+            boolean isSkipableMethod = methodName.equals("run") || methodName.equals("runHooks") ||
+                methodName.equals("executeWithFilteredStackTrace") || methodName.equals("assertTest");
+            if (!(isFromClass && isSkipableMethod)) {
+                // the stack element was not generated from this class
+                filteredStackTrace.add(element);
+            }
+        }
+        throwable.setStackTrace(filteredStackTrace.toArray(new StackTraceElement[0]));
+    }
+
+    /**
      * Executes the runnable but filters the stack trace for easier debugging
      *
      * @param runnable the runnable which need to execute
@@ -132,14 +153,7 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
                 this.state.hasFailedTest = true;
             }
             // filtering the stack trace
-            LinkedList<StackTraceElement> filteredStackTrace = new LinkedList<StackTraceElement>();
-            for (StackTraceElement element : throwable.getStackTrace()) {
-                if (!element.getClassName().equals(this.getClass().getCanonicalName())) {
-                    // the stack element was not generated from this class
-                    filteredStackTrace.add(element);
-                }
-            }
-            throwable.setStackTrace(filteredStackTrace.toArray(new StackTraceElement[0]));
+            this.filterStackTrace(throwable);
             return throwable;
         }
     }
@@ -218,6 +232,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param nodeCode code for the tests in the current node
      */
     public void describe(String nodeDescription, Runnable nodeCode) {
+        if (this.state.isRunningAllTests) {
+            throw new IllegalStateException("Cannot call 'describe' within a test or hook runnable.");
+        }
         // creating the new child with appropriate parent, and add to tree
         GreenTeaLatte child = new GreenTeaLatte(this.state.currentNode, nodeDescription);
 
@@ -245,6 +262,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param testDescription description of the pending test
      */
     public void it(String testDescription) {
+        if (this.state.isRunningAllTests) {
+            throw new IllegalStateException("Cannot call 'it' within a test or hook runnable.");
+        }
         // add test to current level
         this.state.currentNode.tests.add(new ExtendedRunnable(testDescription, () -> {}));
     }
@@ -261,6 +281,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param testCode code for the test
      */
     public void it(String testDescription, Runnable testCode) {
+        if (this.state.isRunningAllTests) {
+            throw new IllegalStateException("Cannot call 'it' within a test or hook runnable.");
+        }
         // add test to current level
         this.state.currentNode.tests.add(new ExtendedRunnable(testDescription, testCode));
     }
@@ -274,6 +297,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param resultFromTestExpression boolean from a user defined test expression
      */
     public void assertTest(Boolean resultFromTestExpression) {
+        if (!this.state.isRunningTest) {
+            throw new IllegalStateException("All 'assertTest' calls must be made within an 'it' call");
+        }
         this.state.wasAssertTestCalled = true;
         if (!resultFromTestExpression) {
             this.state.hasFailedTest         = true;
@@ -293,6 +319,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param setup code for the setup
      */
     public void before(String description, Runnable setup) {
+        if (this.state.isRunningAllTests) {
+            throw new IllegalStateException("Cannot call 'before' within a test or hook runnable.");
+        }
         // add hook to current level
         this.state.currentNode.beforeHooks.add(new ExtendedRunnable(description, setup));
     }
@@ -308,6 +337,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param cleanup code for the cleanup
      */
     public void after(String description, Runnable cleanup) {
+        if (this.state.isRunningAllTests) {
+            throw new IllegalStateException("Cannot call 'after' within a test or hook runnable.");
+        }
         // add hook to current level
         this.state.currentNode.afterHooks.add(new ExtendedRunnable(description, cleanup));
     }
@@ -323,6 +355,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param setup code for the setup
      */
     public void beforeEach(String description, Runnable setup) {
+        if (this.state.isRunningAllTests) {
+            throw new IllegalStateException("Cannot call 'beforeEach' within a test or hook runnable.");
+        }
         // add hook to current level
         this.state.currentNode.beforeEachHooks.add(new ExtendedRunnable(description, setup));
     }
@@ -338,6 +373,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * @param cleanup code for the cleanup
      */
     public void afterEach(String description, Runnable cleanup) {
+        if (this.state.isRunningAllTests) {
+            throw new IllegalStateException("Cannot call 'afterEach' within a test or hook runnable.");
+        }
         // add hook to current level
         this.state.currentNode.afterEachHooks.add(new ExtendedRunnable(description, cleanup));
     }
@@ -346,13 +384,17 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * Loops through all hooks in a linked list and executes them
      *
      * @param LinkedList<ExtendedRunnable> list of hooks
+     * @throws Throwable any error that occured in a hook
      */
     private void runHooks(LinkedList<ExtendedRunnable> hooks) {
         for (ExtendedRunnable hook : hooks) {
             System.out.printf("%s%s\n", this.getFullIdentation(1), hook.description);
-            Throwable error = this.executeWithFilteredStackTrace(hook.runnable);
-            if (error != null) {
-                this.printIndentedStackTrace(error);
+            Throwable throwable = this.executeWithFilteredStackTrace(hook.runnable);
+            if (throwable != null) {
+                // throwing the error, otherwise it won't show up in test results
+                Error error = new Error(throwable);
+                this.filterStackTrace(error);
+                throw error;
             }
         }
     }
@@ -361,6 +403,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
      * Runs all tests that have been defined
      * <p>
      * Runs deepest level tests first.
+     *
+     * @throws Throwable any error that occured to stop tests from running or
+     * throws a RuntimeException after all tests have been run if one of them failed
      */
     public void run() {
         // log information about current node (description)
@@ -370,6 +415,8 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
         // run children first before executing tests
         for (GreenTeaLatte child : this.children) child.run();
         if (this.children.size() > 0) System.out.println();
+
+        this.state.isRunningAllTests = true;
 
         // run all before hooks
         this.runHooks(this.beforeHooks);
@@ -386,9 +433,9 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
             this.state.hasFailedTest       = false;
 
             // call the test
-            this.state.isRunningTest = true;
             this.state.currentNode   = this;
-            Throwable error = this.executeWithFilteredStackTrace(test.runnable);
+            this.state.isRunningTest = true;
+            Throwable throwable = this.executeWithFilteredStackTrace(test.runnable);
             this.state.isRunningTest = false;
 
             // report the test and check for successful, pending, or failed
@@ -404,8 +451,8 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
                 symbolForTest = SYMBOL_SUCCESSFUL;
             }
             System.out.printf("%s%s %s\n", this.getFullIdentation(1), symbolForTest, test.description);
-            if (error != null) {
-                this.printIndentedStackTrace(error);
+            if (throwable != null) {
+                this.printIndentedStackTrace(throwable);
             }
 
             // run all individual after hooks
@@ -432,8 +479,12 @@ public class GreenTeaLatte implements GreenTeaLatteInterface {
             else System.out.printf("%s Tests have failed!\n", SYMBOL_FAILED);
         }
 
-        // TODO: throw error if current node is the root and if tests have failed
-        //
+        this.state.isRunningAllTests = false;
+
+        // throwing runtime exception if at least one test failed on the full tree
+        if (this.isRoot() && this.failedTests > 0) {
+            throw new Error("Did not pass all tests");
+        }
     } /* run */
 
     /**
