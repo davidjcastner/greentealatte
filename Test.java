@@ -12,6 +12,10 @@ public class Test {
                                 deliciousLatte.assertTest(true);
                             });
                         deliciousLatte.it("should fail this test", () -> {
+                                int[] arr = new int[1];
+                                for (int i = 0; i < 5; i++) {
+                                    arr[i] = 0;
+                                }
                                 deliciousLatte.assertTest(false);
                             });
                     });
@@ -23,6 +27,10 @@ public class Test {
                                 deliciousLatte.assertTest(true);
                             });
                         deliciousLatte.describe("testing something about method C", () -> {
+                                deliciousLatte.before("before", () -> {});
+                                deliciousLatte.beforeEach("before each code", () -> {});
+                                deliciousLatte.after("after", () -> {});
+                                deliciousLatte.afterEach("after each code", () -> {});
                                 deliciousLatte.it("should pass this test", () -> {
                                         deliciousLatte.assertTest(true);
                                     });
