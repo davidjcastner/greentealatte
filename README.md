@@ -7,6 +7,8 @@ The framework is inspired by [Mocha](https://mochajs.org/) & [Chai](http://chaij
 
 * [Documentation](#documentation)
   * [class GreenTeaLatte()](#class-greentealatte)
+  * [class GreenTeaLatte(String description)](#class-greentealatte)
+
 
 ## Documentation
 
@@ -14,5 +16,5 @@ The framework is inspired by [Mocha](https://mochajs.org/) & [Chai](http://chaij
 
 Creates a GreenTeaLatte instance
 
-###
+### class GreenTeaLatte(String description)
 
