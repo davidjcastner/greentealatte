@@ -19,6 +19,7 @@ The framework is inspired by [Mocha](https://mochajs.org/) & [Chai](http://chaij
     * [void beforeEach(String description, Runnable setup)](#void-beforeeachstring-description-runnable-setup)
     * [void afterEach(String description, Runnable cleanup)](#void-aftereachstring-description-runnable-cleanup)
     * [void run()](#void-run)
+* [Found an issue or bug?](#found-an-issue-or-bug)
 
 ## Examples
 
@@ -311,3 +312,7 @@ Runs deepest level first
 
 Throws any error that occured to stop tests from running or
 throws a RuntimeException after all tests have been run if one of them failed.
+
+## Found an issue or bug?
+
+Check to see if the bug was reported under open issues. If if isn't reported, please create an issue.
