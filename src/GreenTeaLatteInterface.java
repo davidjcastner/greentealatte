@@ -1,4 +1,4 @@
-package src;
+package greentealatte.src;
 
 interface GreenTeaLatteInterface {
     // GreenTeaLatteInterface is an inferace for a behavior driven development testing framework
